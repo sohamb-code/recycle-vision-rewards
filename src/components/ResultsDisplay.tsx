@@ -1,10 +1,10 @@
-
 import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Check, Recycle } from "lucide-react";
 import { useToast } from "@/components/ui/use-toast";
+import { classifyImage } from '../utils/imageClassification';
 
 // Mock recycling items database
 const recyclingDatabase = [
@@ -54,22 +54,45 @@ const ResultsDisplay: React.FC<ResultsDisplayProps> = ({ imageUrl, onRecycled })
   const [result, setResult] = useState<typeof recyclingDatabase[0] | null>(null);
   const [loading, setLoading] = useState(true);
   const [recycled, setRecycled] = useState(false);
+  const [detectedObject, setDetectedObject] = useState<string>('');
   const { toast } = useToast();
 
   useEffect(() => {
-    if (imageUrl) {
-      setLoading(true);
-      setRecycled(false);
-      
-      // Simulate processing the image and identifying the item
-      setTimeout(() => {
-        // Get a random item from our mock database for demo purposes
-        const randomItem = recyclingDatabase[Math.floor(Math.random() * recyclingDatabase.length)];
-        setResult(randomItem);
-        setLoading(false);
-      }, 2000);
-    }
-  }, [imageUrl]);
+    const analyzeImage = async () => {
+      if (imageUrl) {
+        setLoading(true);
+        setRecycled(false);
+        
+        try {
+          // First, classify the image using AI
+          const classification = await classifyImage(imageUrl);
+          setDetectedObject(classification.label);
+          
+          // Get recycling information based on the detected object
+          // For demo purposes, we'll select a random item from our database
+          // In a real app, you would match the detected object with your recycling database
+          const randomItem = recyclingDatabase[Math.floor(Math.random() * recyclingDatabase.length)];
+          setResult(randomItem);
+          
+          toast({
+            title: "Object Detected!",
+            description: `Detected item: ${classification.label}`,
+          });
+        } catch (error) {
+          console.error('Error processing image:', error);
+          toast({
+            title: "Error",
+            description: "Failed to analyze the image. Please try again.",
+            variant: "destructive",
+          });
+        } finally {
+          setLoading(false);
+        }
+      }
+    };
+
+    analyzeImage();
+  }, [imageUrl, toast]);
 
   const handleRecycle = () => {
     if (result) {
@@ -115,6 +138,7 @@ const ResultsDisplay: React.FC<ResultsDisplayProps> = ({ imageUrl, onRecycled })
                 </div>
                 <div>
                   <h3 className="font-bold text-lg">{result?.name}</h3>
+                  <p className="text-sm text-muted-foreground mb-2">Detected: {detectedObject}</p>
                   <p className="text-sm text-muted-foreground mb-2">Material: {result?.material}</p>
                   <p className="text-sm mb-4">{result?.instructions}</p>
                   <div className="bg-muted p-3 rounded-md">
